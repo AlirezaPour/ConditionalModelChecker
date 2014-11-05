@@ -1,0 +1,480 @@
+ctmc 
+
+//---------------------------
+// population parameters 
+//---------------------------
+
+	//-----------------
+	// near users
+	//-----------------
+
+const number_user_near = 200 ; 
+
+	//------------------
+	// users at femto_1
+	//------------------
+
+const number_scu_femto_1 = 30 ;
+const number_wcu_femto_1 = 2; 
+
+	//------------------
+	// users at femto_2
+	//------------------
+
+const number_scu_femto_2 = 30 ;
+const number_wcu_femto_2 = 2; 
+
+	//-----------------
+	// macro-cell
+	//-----------------
+
+const number_channel_macro = 35 ;
+const int ldcq_capacity = 1 ;  
+
+	//---------------
+	// femto-cell_1
+	//---------------	
+
+const number_channel_femto_1 = 5 ;
+const wcuq_capacity = 1; // for all femto-cells.
+
+	//---------------
+	// femto-cell_2
+	//---------------	
+
+const number_channel_femto_2 = 5 ;
+
+
+//--------------------
+// rate parameters 
+//-------------------
+
+
+	//------------------------------
+	// near user dynamics
+	//------------------------------
+
+const double r_near_process = 5 ;  
+const double r_send_macro_nr = 15 ; 
+const double r_send_macro_po = 22 ; 
+
+
+	//-------------------------------
+	// macro-cell
+	//-------------------------------
+
+	// for femto-cell 1
+const double r_stream_wcu_femto_1_macro_po = 0.2 ; 
+
+	// for femto-celll 2
+const double r_stream_wcu_femto_2_macro_po = 0.2 ; 
+
+	//-----------------------------------
+	// dynamics of users at femto_1
+	//----------------------------------
+
+const double r_process_scu_femto_1 = 5 ; // same as the near_normal_users.  
+
+const double r_send_femto_1_nr = 20 ;  
+const double r_send_femto_1_po = 10 ;  
+
+
+const double r_wcu_femto_1_process = 0.1 ; 
+
+
+	//-----------------------------------
+	// dynamics of users at femto_2
+	//----------------------------------
+
+const double r_process_scu_femto_2 = 5 ; // same as the near_normal_users.  
+
+const double r_send_femto_2_nr = 20 ;  
+const double r_send_femto_2_po = 10 ;  
+
+
+const double r_wcu_femto_2_process =0.1 ; 
+
+
+
+	//--------------------
+	// femto_1
+	//--------------------
+
+const double r_stream_femto_1_nr = 2.5 ; 
+const double r_stream_femto_1_po = 1.5 ; 
+
+
+	//--------------------
+	// femto_2
+	//--------------------
+
+const double r_stream_femto_2_nr = 2.5 ; 
+const double r_stream_femto_2_po = 1.5 ; 
+
+
+	// ------------------
+	// control
+	// ------------------
+
+const double r_control = 100000000; 
+
+
+// users modules 
+
+module near_users
+
+	user_near_processing : [0..number_user_near] init number_user_near ; 
+	user_near_sending : [0..number_user_near] init 0 ; 
+
+	[near_proc] (user_near_processing > 0 ) & (user_near_sending < number_user_near) -> (user_near_processing * r_near_process)  : (user_near_processing' = user_near_processing - 1) & (user_near_sending' = user_near_sending + 1)  ; 
+	[send_macro_nr] (user_near_sending > 0 ) &  (user_near_processing < number_user_near) -> 1 : (user_near_sending' = user_near_sending - 1 ) & (user_near_processing' = user_near_processing + 1) ; 
+	[send_macro_po] (user_near_sending > 0 ) &  (user_near_processing < number_user_near) -> 1 : (user_near_sending' = user_near_sending - 1 ) & (user_near_processing' = user_near_processing + 1) ; 
+
+endmodule 
+
+
+
+// macro-cell modules
+
+module macro_LDCQ
+
+	ldcq : [0..ldcq_capacity] init 0 ; 
+	
+	[send_macro_nr] (ldcq = 0 ) -> (1) : (ldcq' = ldcq)  ; 
+	[send_macro_po] (ldcq > 0 ) -> (1) : (ldcq' = ldcq)  ; 
+
+	//-------------------------
+	// for test: mode change
+	//-------------------------
+	//[establish_ldc] (ldcq = 0) -> (0.003) : (ldcq'=1) ; 
+	//[establish_ldc] (ldcq > 0) -> (0.003) : (ldcq'=0) ; 
+
+	//-----------------------------------
+	// dealing with femto_1
+	//-----------------------------------
+
+	// accepting or rejecting LDC requests from WCUs within femto_1
+	[accept_wcu_femto_1_macro] (ldcq < ldcq_capacity) -> (r_control) : ( ldcq' = ldcq + 1) ; 
+	[reject_wcu_femto_1_macro] (ldcq = ldcq_capacity) -> (r_control) : ( ldcq' = ldcq ) ; 
+
+	// serving a LDC to a WCU in femto_1
+	[stream_wcu_femto_1_macro_po] (ldcq > 0) -> (ldcq * r_stream_wcu_femto_1_macro_po) : (ldcq' = ldcq-1) ;
+
+	// adjusting the rates for sendings within the femto-cell 2
+	[send_femto_1_nr] (ldcq = 0)  -> (1) : (ldcq' = ldcq) ;
+	[send_femto_1_po] (ldcq > 0)  -> (1) : (ldcq' = ldcq) ;
+
+	// adjusting the rates for streams within femto-cell 2
+	[stream_femto_1_nr] (ldcq=0)  -> (1): (ldcq' = ldcq ); 
+	[stream_femto_1_po] (ldcq>0)  -> (1): (ldcq' = ldcq );
+
+
+
+	//-----------------------------------
+	// dealing with femto_2
+	//-----------------------------------
+
+	// accepting or rejecting LDC requests from WCUs within femto_2
+	[accept_wcu_femto_2_macro] (ldcq < ldcq_capacity) -> (r_control) : ( ldcq' = ldcq + 1) ; 
+	[reject_wcu_femto_2_macro] (ldcq = ldcq_capacity) -> (r_control) : ( ldcq' = ldcq ) ; 
+
+	// serving a LDC to a WCU in femto_2
+	[stream_wcu_femto_2_macro_po] (ldcq > 0) -> (ldcq * r_stream_wcu_femto_2_macro_po) : (ldcq' = ldcq-1) ;
+
+	// adjusting the rates for sendings within the femto-cells 2
+	[send_femto_2_nr] (ldcq = 0)  -> (1) : (ldcq' = ldcq) ;
+	[send_femto_2_po] (ldcq > 0)  -> (1) : (ldcq' = ldcq) ;
+
+	// adjusting the rates for streams within femto-cell 2
+	[stream_femto_2_nr] (ldcq=0)  -> (1): (ldcq' = ldcq ); 
+	[stream_femto_2_po] (ldcq>0)  -> (1): (ldcq' = ldcq );
+
+
+	// dealing with femto_2
+//	[accept_far_in_femto_2_from_macro] (hpqf < hpqf_capacity) -> (r_accept_far_in_femto_2_from_macro) : ( hpqf' = hpqf + 1) ; 
+
+//	[reject_far_in_femto_2_from_macro] (hpqf = hpqf_capacity) -> (r_reject_far_in_femto_2_from_macro) : ( hpqf' = hpqf ) ; 
+
+//	[stream_from_femto_2_far_user_to_macro_mode_1] (hpqf>0) -> (1) : (hpqf' = hpqf -1 )  ; 
+
+endmodule 
+
+
+module macro_channels
+
+	ch_macro_idle : [0..number_channel_macro] init number_channel_macro ; 
+
+	[send_macro_nr] (ch_macro_idle>0) & (ldcq = 0) -> ( ch_macro_idle * r_send_macro_nr ) : (ch_macro_idle' = ch_macro_idle ) ; 
+	[send_macro_po] (ch_macro_idle>0) & (ldcq > 0) -> ( ch_macro_idle * r_send_macro_po ) : (ch_macro_idle' = ch_macro_idle ) ; 
+
+endmodule
+
+
+//---------------------------------
+// SCU near femto-cell 1
+//---------------------------------
+
+module scu_femto_1
+
+        scu_femto_1_processing : [0..number_scu_femto_1] init number_scu_femto_1; 
+        scu_femto_1_sending : [0..number_scu_femto_1] init 0 ; 
+
+        [process_scu_femto_1] (scu_femto_1_processing > 0) & ( scu_femto_1_sending < number_scu_femto_1 ) -> 
+		(scu_femto_1_processing * r_process_scu_femto_1) :
+			(scu_femto_1_processing' = scu_femto_1_processing -1) & (scu_femto_1_sending' = scu_femto_1_sending + 1 ) ;
+
+        [send_femto_1_nr] (scu_femto_1_sending > 0) & ( scu_femto_1_processing < number_scu_femto_1 ) ->
+                 (1) : (scu_femto_1_sending' = scu_femto_1_sending -1 ) & (scu_femto_1_processing' = scu_femto_1_processing + 1 ) ; 
+
+        [send_femto_1_po] (scu_femto_1_sending > 0) & (scu_femto_1_processing < number_scu_femto_1) -> 
+                 (1) : (scu_femto_1_sending' = scu_femto_1_sending -1 ) & (scu_femto_1_processing' = scu_femto_1_processing + 1 ) ; 
+
+endmodule 
+
+
+//---------------------------------
+// WCU near femto-cell 1
+//---------------------------------
+
+module wcu_femto_1
+
+	wcu_femto_1_processing : [0..number_wcu_femto_1] init number_wcu_femto_1 ; 
+
+	wcu_femto_1_waiting_local : [0..number_wcu_femto_1] init 0 ; 
+	wcu_femto_1_streaming_local:[0..number_wcu_femto_1] init 0 ; 
+
+	wcu_femto_1_waiting_macro : [0..number_wcu_femto_1] init 0 ; 
+	wcu_femto_1_streaming_macro:[0..number_wcu_femto_1] init 0 ; 
+
+	[process_wcu_femto_1] (wcu_femto_1_processing>0) & (wcu_femto_1_waiting_local < number_wcu_femto_1) ->
+		(wcu_femto_1_processing * r_wcu_femto_1_process) : 
+			 (wcu_femto_1_processing' = wcu_femto_1_processing-1) & (wcu_femto_1_waiting_local'= wcu_femto_1_waiting_local+1) ; 
+
+	// response from the femto-cell
+
+	[accept_wcu_femto_1_local] (wcu_femto_1_waiting_local>0) & (wcu_femto_1_streaming_local < number_wcu_femto_1) ->
+		(r_control): (wcu_femto_1_waiting_local' = wcu_femto_1_waiting_local-1 ) & (wcu_femto_1_streaming_local' = wcu_femto_1_streaming_local + 1 ); 
+
+	[reject_w_femto_1_local] (wcu_femto_1_waiting_local>0) & (wcu_femto_1_waiting_macro < number_wcu_femto_1 ) -> 
+		(r_control):  (wcu_femto_1_waiting_local' = wcu_femto_1_waiting_local - 1) & (wcu_femto_1_waiting_macro' = wcu_femto_1_waiting_macro + 1 ) ; 
+
+
+	// stream to the local femto-cell
+	
+	[stream_femto_1_nr] (wcu_femto_1_streaming_local>0) & (wcu_femto_1_processing<number_wcu_femto_1) -> 
+		( 1):
+		 (wcu_femto_1_streaming_local' = wcu_femto_1_streaming_local - 1) & (wcu_femto_1_processing' = wcu_femto_1_processing + 1 ); 
+
+	[stream_femto_1_po] (wcu_femto_1_streaming_local>0) & (wcu_femto_1_processing<number_wcu_femto_1) -> 
+		(1):
+		 (wcu_femto_1_streaming_local' = wcu_femto_1_streaming_local - 1) & (wcu_femto_1_processing' = wcu_femto_1_processing + 1 ); 
+
+	// response from the macro-cell
+ 
+	[accept_wcu_femto_1_macro] (wcu_femto_1_waiting_macro > 0) & (wcu_femto_1_streaming_macro < number_wcu_femto_1) -> 
+		(r_control): (wcu_femto_1_waiting_macro' = wcu_femto_1_waiting_macro-1) & (wcu_femto_1_streaming_macro' = wcu_femto_1_streaming_macro + 1 ) ; 
+	
+	[reject_wcu_femto_1_macro] (wcu_femto_1_waiting_macro > 0) & (wcu_femto_1_processing <  number_wcu_femto_1) -> 
+		(r_control): (wcu_femto_1_waiting_macro' = wcu_femto_1_waiting_macro-1) & (wcu_femto_1_processing' = wcu_femto_1_processing + 1 ) ; 
+	
+	// stream to the macro-cell
+
+	[stream_wcu_femto_1_macro_po] (wcu_femto_1_streaming_macro>0) & (wcu_femto_1_processing < number_wcu_femto_1)  -> 
+		(1) : 
+		  (wcu_femto_1_streaming_macro' = wcu_femto_1_streaming_macro-1) & (wcu_femto_1_processing' = wcu_femto_1_processing+1) ; 
+
+endmodule
+
+
+//---------------------------------
+// femto-cell 1
+//---------------------------------
+
+	//---------------------------------------------
+	// channels for serving SCUs near femto-cell 1
+	//---------------------------------------------
+
+module channels_femto_1
+
+	ch_femto_1_idle : [0..number_channel_femto_1] init number_channel_femto_1 ;
+
+	[send_femto_1_nr] (ch_femto_1_idle > 0)  -> (ch_femto_1_idle * r_send_femto_1_nr) : (ch_femto_1_idle' = ch_femto_1_idle) ;
+	[send_femto_1_po] (ch_femto_1_idle > 0)  -> (ch_femto_1_idle * r_send_femto_1_po) : (ch_femto_1_idle' = ch_femto_1_idle) ;
+	
+endmodule
+
+	//---------------------------------------------
+	// channels for serving SCUs near femto-cell 1
+	//---------------------------------------------
+
+module WCUQueue_femto_1
+
+	wcuq_femto_1 : [0..wcuq_capacity] init 0 ; 
+	
+	[accept_wcu_femto_1_local] (wcuq_femto_1 < wcuq_capacity) ->
+		(r_control): (wcuq_femto_1' = wcuq_femto_1 +1); 
+
+	[reject_w_femto_1_local] (wcuq_femto_1 = wcuq_capacity) -> 
+		(r_control):  (wcuq_femto_1' = wcuq_femto_1 ) ; 
+
+	
+	[stream_femto_1_nr] ( wcuq_femto_1>0 ) -> (wcuq_femto_1 * r_stream_femto_1_nr): (wcuq_femto_1' = wcuq_femto_1-1) ; 
+
+	[stream_femto_1_po] ( wcuq_femto_1>0 ) -> (wcuq_femto_1 * r_stream_femto_1_po): (wcuq_femto_1' = wcuq_femto_1-1) ; 
+
+
+endmodule	
+
+
+
+//---------------------------------
+// SCU near femto-cell 2
+//---------------------------------
+
+module scu_femto_2
+
+        scu_femto_2_processing : [0..number_scu_femto_2] init number_scu_femto_2; 
+        scu_femto_2_sending : [0..number_scu_femto_2] init 0 ; 
+
+        [process_scu_femto_2] (scu_femto_2_processing > 0) & ( scu_femto_2_sending < number_scu_femto_2 ) -> 
+		(scu_femto_2_processing * r_process_scu_femto_2) :
+			(scu_femto_2_processing' = scu_femto_2_processing-1) & (scu_femto_2_sending' = scu_femto_2_sending + 1 ) ;
+
+        [send_femto_2_nr] (scu_femto_2_sending > 0) & ( scu_femto_2_processing < number_scu_femto_2 ) ->
+                 (1) : (scu_femto_2_sending' = scu_femto_2_sending -1 ) & (scu_femto_2_processing' = scu_femto_2_processing + 1 ) ; 
+
+        [send_femto_2_po] (scu_femto_2_sending > 0) & (scu_femto_2_processing < number_scu_femto_2) -> 
+                 (1) : (scu_femto_2_sending' = scu_femto_2_sending -1 ) & (scu_femto_2_processing' = scu_femto_2_processing + 1 ) ; 
+
+endmodule 
+
+
+//---------------------------------
+// WCU near femto-cell 2
+//---------------------------------
+
+module wcu_femto_2
+
+	wcu_femto_2_processing : [0..number_wcu_femto_2] init number_wcu_femto_2 ; 
+
+	wcu_femto_2_waiting_local : [0..number_wcu_femto_2] init 0 ; 
+	wcu_femto_2_streaming_local:[0..number_wcu_femto_2] init 0 ; 
+
+	wcu_femto_2_waiting_macro : [0..number_wcu_femto_2] init 0 ; 
+	wcu_femto_2_streaming_macro:[0..number_wcu_femto_2] init 0 ; 
+
+	[process_wcu_femto_2] (wcu_femto_2_processing>0) & (wcu_femto_2_waiting_local < number_wcu_femto_2) ->
+		(wcu_femto_2_processing * r_wcu_femto_2_process) : 
+			 (wcu_femto_2_processing' = wcu_femto_2_processing-1) & (wcu_femto_2_waiting_local'= wcu_femto_2_waiting_local+1) ; 
+
+	// response from the femto-cell
+
+	[accept_wcu_femto_2_local] (wcu_femto_2_waiting_local>0) & (wcu_femto_2_streaming_local < number_wcu_femto_2) ->
+		(r_control): (wcu_femto_2_waiting_local' = wcu_femto_2_waiting_local-1 ) & (wcu_femto_2_streaming_local' = wcu_femto_2_streaming_local + 1 ); 
+
+	[reject_w_femto_2_local] (wcu_femto_2_waiting_local>0) & (wcu_femto_2_waiting_macro < number_wcu_femto_2 ) -> 
+		(r_control):  (wcu_femto_2_waiting_local' = wcu_femto_2_waiting_local - 1) & (wcu_femto_2_waiting_macro' = wcu_femto_2_waiting_macro + 1 ) ; 
+
+
+	// stream to the local femto-cell
+	
+	[stream_femto_2_nr] (wcu_femto_2_streaming_local>0) & (wcu_femto_2_processing<number_wcu_femto_2) -> 
+		(1):
+		 (wcu_femto_2_streaming_local' = wcu_femto_2_streaming_local - 1) & (wcu_femto_2_processing' = wcu_femto_2_processing + 1 ); 
+
+	[stream_femto_2_po] (wcu_femto_2_streaming_local>0) & (wcu_femto_2_processing<number_wcu_femto_2) -> 
+		(1):
+		 (wcu_femto_2_streaming_local' = wcu_femto_2_streaming_local - 1) & (wcu_femto_2_processing' = wcu_femto_2_processing + 1 ); 
+
+	// response from the macro-cell
+ 
+	[accept_wcu_femto_2_macro] (wcu_femto_2_waiting_macro > 0) & (wcu_femto_2_streaming_macro < number_wcu_femto_2) -> 
+		(r_control): (wcu_femto_2_waiting_macro' = wcu_femto_2_waiting_macro-1) & (wcu_femto_2_streaming_macro' = wcu_femto_2_streaming_macro + 1 ) ; 
+	
+	[reject_wcu_femto_2_macro] (wcu_femto_2_waiting_macro > 0) & (wcu_femto_2_processing <  number_wcu_femto_2) -> 
+		(r_control): (wcu_femto_2_waiting_macro' = wcu_femto_2_waiting_macro-1) & (wcu_femto_2_processing' = wcu_femto_2_processing + 1 ) ; 
+	
+	// stream to the macro-cell
+
+	[stream_wcu_femto_2_macro_po] (wcu_femto_2_streaming_macro>0) & (wcu_femto_2_processing < number_wcu_femto_2)  -> 
+		(1) : 
+		  (wcu_femto_2_streaming_macro' = wcu_femto_2_streaming_macro-1) & (wcu_femto_2_processing' = wcu_femto_2_processing+1) ; 
+
+endmodule
+
+
+
+
+
+//---------------------------------
+// femto-cell 2
+//---------------------------------
+
+	//---------------------------------------------
+	// channels for serving SCUs near femto-cell 2
+	//---------------------------------------------
+
+module channels_femto_2
+
+	ch_femto_2_idle : [0..number_channel_femto_2] init number_channel_femto_2 ;
+
+	[send_femto_2_nr] (ch_femto_2_idle > 0)  -> (ch_femto_2_idle * r_send_femto_2_nr) : (ch_femto_2_idle' = ch_femto_2_idle) ;
+	[send_femto_2_po] (ch_femto_2_idle > 0)  -> (ch_femto_2_idle * r_send_femto_2_po) : (ch_femto_2_idle' = ch_femto_2_idle) ;
+	
+endmodule
+
+	//---------------------------------------------
+	// channels for serving SCUs near femto-cell 2
+	//---------------------------------------------
+
+module WCUQueue_femto_2
+
+	wcuq_femto_2 : [0..wcuq_capacity] init 0 ; 
+	
+	[accept_wcu_femto_2_local] (wcuq_femto_2 < wcuq_capacity) ->
+		(r_control): (wcuq_femto_2' = wcuq_femto_2 +1); 
+
+	[reject_w_femto_2_local] (wcuq_femto_2 = wcuq_capacity) -> 
+		(r_control):  (wcuq_femto_2' = wcuq_femto_2 ) ; 
+
+	
+	[stream_femto_2_nr] ( wcuq_femto_2>0 ) -> (wcuq_femto_2 * r_stream_femto_2_nr): (wcuq_femto_2' = wcuq_femto_2-1) ; 
+
+	[stream_femto_2_po] ( wcuq_femto_2>0 ) -> (wcuq_femto_2 * r_stream_femto_2_po): (wcuq_femto_2' = wcuq_femto_2-1) ; 
+
+
+endmodule	
+
+
+	
+// tests 
+
+
+//formula number_of_HP_users_far_in_current_state = user_far_femto_1_HP_collecting +
+//				 user_far_femto_1_HP_waiting_for_femto_1 +
+//			  	 user_far_femto_1_HP_streaming_to_femto_1 +
+//				 user_far_femto_1_HP_wiating_for_macro + 
+//			  	 user_far_femto_1_HP_streaming_to_macro ; 
+
+//formula apparent_rate_sent_to_macro_mode_0 = ch_macro_normal_idle * r_send_to_macro_mode_0 ;
+
+//label "far_HP_user_correc" = number_of_HP_users_far_in_current_state = number_user_far_HP;
+				
+//label "far_HP_user_correc2" = user_far_femto_1_HP_collecting + user_far_femto_1_HP_waiting_for_femto_1 + user_far_femto_1_HP_wiating_for_macro + hpq + hpqf = number_user_far_HP;
+
+// a useless reward. 
+//rewards "apparent_rate_sent_to_macro_mode_0"
+//	(ffq>0) : ch_macro_normal_idle * r_send_to_macro_mode_0 ; 
+
+rewards "LDC"
+	true : ldcq * 10 ;
+endrewards
+
+
+rewards "WCQ"
+	true : wcuq_femto_1 * 10 ;
+endrewards
+
+rewards "scu_femto_1_sending_wcuq_femto_1_zero"
+	(wcuq_femto_1 = 0) : scu_femto_1_sending ;  
+endrewards
