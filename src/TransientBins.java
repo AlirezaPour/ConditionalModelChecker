@@ -13,12 +13,7 @@ public class TransientBins extends HashMap<Double, FrequencyCollection>{
 		
 			FrequencyCollection freqColl;
 			
-			timePoints = new ArrayList<Double>(); 
 			
-			for (Observation observation : path.observations){
-				double time = observation.time;
-				timePoints.add(time);
-			}
 			
 			for(Double timePoint : timePoints){
 				

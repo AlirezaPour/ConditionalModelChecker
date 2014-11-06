@@ -3,6 +3,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 
@@ -24,8 +25,8 @@ public class Application {
 	
 	String pathFileName = "path_" + variableName1 + "_" + variableName2 + "_series_" + experimentSeries + ".csv";
 	
-	TransientBins transientBins ; // this is initialised when the first path is generated.  
-		
+	//TransientBins transientBins ; // this is initialised when the first path is generated.
+	TransientFrequencies transFrequencies; 
 	
 	public static void main(String[] args) throws IOException {
 		
@@ -52,12 +53,12 @@ public class Application {
 		// when the first path is generated, initialise the bins. 
 		
 		if (firstPath){
-			transientBins = new TransientBins(path, var1MaxValue, var2MaxValue);
+			transFrequencies = new TransientFrequencies(path, var1MaxValue, var2MaxValue);
 			firstPath= false;
 		}
 		
 	
-		
+		// test from here. 
 		double atime = 400.0;
 		FrequencyCollection acollection = transientBins.get(atime);
 		
